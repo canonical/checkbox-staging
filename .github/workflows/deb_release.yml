@@ -1,0 +1,59 @@
+name: Debian packages release
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: JSON of options
+        type: string
+        default: '{}'
+        required: true
+
+jobs:
+  Release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save the config options
+        run: |
+          echo '${{ inputs.config }}' | jq > config.json
+      - name: Archive the release configuration
+        uses: actions/upload-artifact@v3
+        with:
+          name: config.json
+          path: config.json
+      - name: Install dependencies
+        run: |
+          sudo apt update -qq
+          sudo apt install -qq -y bumpversion python3-launchpadlib
+          git clone https://git.launchpad.net/~checkbox-dev/checkbox/+git/support
+          echo '${{ secrets.LP_CREDS }}' > credentials
+      - name: Checkout checkbox monorepo
+        uses: actions/checkout@v3
+        with:
+          repository: canonical/checkbox-staging
+          fetch-depth: 0
+          path: src/checkbox
+      - name: Check for new commits
+        run: |
+          support/release/git/release_deb_monorepo.py clone --config config.json
+      - name: Bump versions
+        run: |
+          git config --global user.email "sylvain.pineau@canonical.com"
+          git config --global user.name "Sylvain Pineau"
+          support/release/git/release_deb_monorepo.py bump --part major
+      - name: Create changelog
+        run: |
+          support/release/git/release_deb_monorepo.py changelog
+      - name: Archive changelog
+        uses: actions/upload-artifact@v3
+        with:
+          name: Changelog
+          path: changelog
+      - name: Push release tags
+        run: |
+          support/release/git/release_deb_monorepo.py push
+      - name: Update the PPA recipe and kick-off the builds
+        env:
+          LP_CREDS: credentials
+        run: |
+          support/release/git/release_deb_monorepo.py build --staging
