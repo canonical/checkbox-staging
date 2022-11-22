@@ -29,6 +29,7 @@ import datetime
 import itertools
 import json
 import logging
+import math
 import os
 import shlex
 import time
@@ -150,6 +151,7 @@ class SessionAssistant:
         functionality where the application can easily filter out sessions from
         other programs.
         """
+        print(f'The value of pi is approximately {math.pi:.3f}.')
         if api_version not in get_known_sa_api_versions():
             raise ValueError("Unrecognized API version")
         self._flags = set()
